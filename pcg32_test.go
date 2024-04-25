@@ -6,28 +6,28 @@ import (
 )
 
 func TestPCG32_Bounded(t *testing.T) {
-    pcg := NewPCG32().Seed(12345, 67890)
+	pcg := NewPCG32().Seed(12345, 67890)
 
-    testCases := []struct {
-        bound    uint32
-    }{
-        {0},
-        {1},
-        {10},
-        {100},
-        {1000},
-        {10000},
-    }
+	testCases := []struct {
+		bound uint32
+	}{
+		{0},
+		{1},
+		{10},
+		{100},
+		{1000},
+		{10000},
+	}
 
-    for _, tc := range testCases {
-        result := pcg.Bounded(tc.bound)
-        if tc.bound != 0 && result >= tc.bound {
-            t.Errorf("Bounded(%d) = %d; expected a value between 0 and %d", tc.bound, result, tc.bound)
-        }
-        if tc.bound == 0 && result != 0 {
-            t.Errorf("Bounded(%d) = %d; expected 0", tc.bound, result)
-        }
-    }
+	for _, tc := range testCases {
+		result := pcg.Bounded(tc.bound)
+		if tc.bound != 0 && result >= tc.bound {
+			t.Errorf("Bounded(%d) = %d; expected a value between 0 and %d", tc.bound, result, tc.bound)
+		}
+		if tc.bound == 0 && result != 0 {
+			t.Errorf("Bounded(%d) = %d; expected 0", tc.bound, result)
+		}
+	}
 }
 
 func TestPCG32_UniformDistribution(t *testing.T) {
@@ -133,16 +133,16 @@ func abs(x int) int {
 }
 
 func BenchmarkPCG32(b *testing.B) {
-    rng := NewPCG32()
-    for i := 0; i < b.N; i++ {
-        rng.Random()
-    }
+	rng := NewPCG32()
+	for i := 0; i < b.N; i++ {
+		rng.Random()
+	}
 }
 
 func BenchmarkMathRand(b *testing.B) {
-    for i := 0; i < b.N; i++ {
-        rand.Uint32()
-    }
+	for i := 0; i < b.N; i++ {
+		rand.Uint32()
+	}
 }
 
 func BenchmarkPCG32_Bounded(b *testing.B) {

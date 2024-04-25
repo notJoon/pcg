@@ -27,6 +27,9 @@ func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
 	return p
 }
 
+// neg_mask is a mask to extract the lower 5 bits of a number.
+const neg_mask = 31
+
 // Random generates a pseudorandom 32-bit unsigned integer using the PCG32 algorithm.
 // It updates the internal state of the generator using the PCG32 formula:
 //
@@ -39,32 +42,29 @@ func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
 //  4. Rotate `xorshifted` right by `rot` bits and OR it with `xorshifted` rotated left by `((-rot) & 31)` bits.
 //
 // The resulting value is returned as the random number.
-
-
-const neg_mask = 31
-
 func (p *PCG32) Random() uint32 {
-    old := p.state
-    p.state = old*multiplier + p.increment
+	old := p.state
+	p.state = old*multiplier + p.increment
 
-    xorshifted := uint32(((old >> 18) ^ old) >> 27)
-    rot := uint32(old >> 59)
+	xorshifted := uint32(((old >> 18) ^ old) >> 27)
+	rot := uint32(old >> 59)
 
-    return (xorshifted >> rot) | (xorshifted << (neg_mask - rot))
+	return (xorshifted >> rot) | (xorshifted << (neg_mask - rot))
 }
 
+// Bounded generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
 func (p *PCG32) Bounded(bound uint32) uint32 {
-    if bound == 0 {
-        return 0
-    }
+	if bound == 0 {
+		return 0
+	}
 
-    threshold := -bound % bound
-    for {
-        r := p.Random()
-        if r >= threshold {
-            return r % bound
-        }
-    }
+	threshold := -bound % bound
+	for {
+		r := p.Random()
+		if r >= threshold {
+			return r % bound
+		}
+	}
 }
 
 // lcg64 is an implementation of a 64-bit linear congruential generator (LCG).
