@@ -3,6 +3,7 @@ package pcg
 import (
 	"errors"
 	"math/bits"
+	"unsafe"
 )
 
 // A PCG is a PCG generator with 128 bits of internal state.
@@ -24,7 +25,6 @@ func (p *PCG) Seed(seed1, seed2, seq1, seq2 uint64) *PCG {
 	if seq1&mask == seq2&mask {
 		seq2 = ^seq2
 	}
-
 	p.lo.Seed(seed1, seq1)
 	p.hi.Seed(seed2, seq2)
 
@@ -52,15 +52,15 @@ func (p *PCG) Advance(delta uint64) *PCG {
 }
 
 func (p *PCG) Retreat(delta uint64) *PCG {
-	p.hi.Retreat(delta)
-	p.lo.Retreat(delta)
+	safeDelta := ^uint64(0) - 1
+	p.Advance(safeDelta)
 	return p
 }
 
 func beUint64(b []byte) uint64 {
 	_ = b[7]
 	return uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
-	uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
+		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
 }
 
 func bePutUint64(b []byte, v uint64) {
@@ -80,6 +80,18 @@ func (p *PCG) MarshalBinary() ([]byte, error) {
 	copy(b, "pcg:")
 	bePutUint64(b[4:], p.hi.state)
 	bePutUint64(b[4+8:], p.lo.state)
+	return b, nil
+}
+
+func bePutUint64Unsafe(b []byte, v uint64) {
+	*(*uint64)(unsafe.Pointer(&b[0])) = v
+}
+
+func (p *PCG) MarshalBinaryUnsafe() ([]byte, error) {
+	b := make([]byte, 20)
+	*(*uint32)(unsafe.Pointer(&b[0])) = *(*uint32)(unsafe.Pointer(&[4]byte{'p', 'c', 'g', ':'}))
+	bePutUint64Unsafe(b[4:], p.hi.state)
+	bePutUint64Unsafe(b[4+8:], p.lo.state)
 	return b, nil
 }
 
@@ -118,11 +130,12 @@ func (p *PCG) next() (uint64, uint64) {
 func (p *PCG) Uint64() uint64 {
 	hi, lo := p.next()
 
-	const cheapMul = 0xda942042e4dd58b5
+	// ref: https://www.pcg-random.org/posts/128-bit-mcg-passes-practrand.html (#64-bit Multiplier)
+	const cheapMul = 0xda942042e4dd58b5 // 15750249268501108917
 	hi ^= hi >> 22
 	hi *= cheapMul
 	hi ^= hi >> 48
-	hi *= lo|1
+	hi *= (lo | 1)
 
 	return hi
 }

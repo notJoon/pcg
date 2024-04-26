@@ -39,7 +39,6 @@ func TestPCG32_UniformDistribution(t *testing.T) {
 
 	for i := 0; i < numSamples; i++ {
 		r := pcg.Random()
-		// println(r)
 		binIndex := int(uint64(r) * uint64(numBins) >> 32)
 		bins[binIndex]++
 	}
