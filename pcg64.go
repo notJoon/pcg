@@ -6,54 +6,63 @@ import (
 	"unsafe"
 )
 
-// A PCG is a PCG generator with 128 bits of internal state.
-// A zero PCG is equivalent to one seeded with 0.
-type PCG struct {
+// A PCG64 is a PCG64 generator with 128 bits of internal state.
+// A zero PCG64 is equivalent to one seeded with 0.
+type PCG64 struct {
 	hi, lo *PCG32
 }
 
-// NewPCG returns a new PCG seeded with the given values.
-func NewPCG(seed1, seed2 uint64) *PCG {
-	return &PCG{
-		hi: NewPCG32().Seed(seed1, 0),
-		lo: NewPCG32().Seed(seed2, 0),
+// NewPCG64 returns a new PCG64 generator seeded with thr given values.
+// seed1 and seed2 are the initial state values for the generator.
+func NewPCG64(seed1, seed2 uint64) *PCG64 {
+	return &PCG64{
+		hi: NewPCG32().SeedPCG32(seed1, 0),
+		lo: NewPCG32().SeedPCG32(seed2, 0),
 	}
 }
 
-func (p *PCG) Seed(seed1, seed2, seq1, seq2 uint64) *PCG {
+// SeedPCG64 initializes the PCG64 generator with the given state and sequence values.
+// seed1 and seed2 are the initial state values, and seq1 and seq2 are the sequence values.
+func (p *PCG64) SeedPCG64(seed1, seed2, seq1, seq2 uint64) *PCG64 {
 	mask := ^uint64(0) >> 1
 	if seq1&mask == seq2&mask {
 		seq2 = ^seq2
 	}
-	p.lo.Seed(seed1, seq1)
-	p.hi.Seed(seed2, seq2)
+	p.lo.SeedPCG32(seed1, seq1)
+	p.hi.SeedPCG32(seed2, seq2)
 
 	return p
 }
 
-func (p *PCG) Random() uint64 {
-	return uint64(p.hi.Random())<<32 | uint64(p.lo.Random())
+// NextUint64 generates a pseudorandom 64-bit unsigned integer using the PCG64 algorithm.
+func (p *PCG64) NextUint64() uint64 {
+	return uint64(p.hi.NextUint32())<<32 | uint64(p.lo.NextUint32())
 }
 
-func (p *PCG) Bounded(bound uint64) uint64 {
+// NextUint64InRange generates a pseudorandom number in the range [0, bound) using the PCG64 algorithm.
+func (p *PCG64) NextUint64InRange(bound uint64) uint64 {
 	threshold := -bound % bound
 	for {
-		r := p.Random()
+		r := p.NextUint64()
 		if r >= threshold {
 			return r % bound
 		}
 	}
 }
 
-func (p *PCG) Advance(delta uint64) *PCG {
-	p.hi.Advance(delta)
-	p.lo.Advance(delta)
+// AdvancePCG64 moves the PCG64 generator forward by `delta` steps.
+// It updates the initial state of the generator.
+func (p *PCG64) AdvancePCG64(delta uint64) *PCG64 {
+	p.hi.AdvancePCG32(delta)
+	p.lo.AdvancePCG32(delta)
 	return p
 }
 
-func (p *PCG) Retreat(delta uint64) *PCG {
+// RetreatPCG64 moves the PCG64 generator backward by `delta` steps.
+// it updates the initial state of the generator.
+func (p *PCG64) RetreatPCG64(delta uint64) *PCG64 {
 	safeDelta := ^uint64(0) - 1
-	p.Advance(safeDelta)
+	p.AdvancePCG64(safeDelta)
 	return p
 }
 
@@ -75,7 +84,9 @@ func bePutUint64(b []byte, v uint64) {
 	b[7] = byte(v)
 }
 
-func (p *PCG) MarshalBinary() ([]byte, error) {
+// MarshalBinaryPCG64 serializes the state of the PCG64 generator to a binary format.
+// It returns the serialized state as a byte slice.
+func (p *PCG64) MarshalBinaryPCG64() ([]byte, error) {
 	b := make([]byte, 20)
 	copy(b, "pcg:")
 	bePutUint64(b[4:], p.hi.state)
@@ -87,7 +98,11 @@ func bePutUint64Unsafe(b []byte, v uint64) {
 	*(*uint64)(unsafe.Pointer(&b[0])) = v
 }
 
-func (p *PCG) MarshalBinaryUnsafe() ([]byte, error) {
+// MarshalBinaryPCG64Unsafe serializes the state of the PCG64 generator to a binary format using unsafe operations.
+// It returns the serialized state as a byte slice.
+// This method does not allocate any memory and is about 30 times faster than the safe version.
+// However, it should be used with caution as it relies on unsafe operations.
+func (p *PCG64) MarshalBinaryUnsafe() ([]byte, error) {
 	b := make([]byte, 20)
 	*(*uint32)(unsafe.Pointer(&b[0])) = *(*uint32)(unsafe.Pointer(&[4]byte{'p', 'c', 'g', ':'}))
 	bePutUint64Unsafe(b[4:], p.hi.state)
@@ -97,7 +112,9 @@ func (p *PCG) MarshalBinaryUnsafe() ([]byte, error) {
 
 var errUnmarshalPCG = errors.New("invalid PCG encoding")
 
-func (p *PCG) UnmarshalBinary(b []byte) error {
+// UnmarshalBinaryPCG64 deserializes the state of the PCG64 generator from a binary format.
+// It takes the serialized state as a byte slice and updates the generator's state.
+func (p *PCG64) UnmarshalBinary(b []byte) error {
 	if len(b) != 20 || string(b[:4]) != "pcg:" {
 		return errUnmarshalPCG
 	}
@@ -106,7 +123,7 @@ func (p *PCG) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-func (p *PCG) next() (uint64, uint64) {
+func (p *PCG64) next() (uint64, uint64) {
 	const (
 		mulHi = 2549297995355413924
 		mulLo = 4865540595714422341
@@ -127,7 +144,9 @@ func (p *PCG) next() (uint64, uint64) {
 	return hi, lo
 }
 
-func (p *PCG) Uint64() uint64 {
+// NextUInt64WithMCG generates a pseudorandom 64-bit unsigned integer using the PCG64 algorithm with Multiplier Congruential Generator (MCG).
+// It updates the internal state of the generator and returns the generated value.
+func (p *PCG64) NextUint64WithMCG() uint64 {
 	hi, lo := p.next()
 
 	// ref: https://www.pcg-random.org/posts/128-bit-mcg-passes-practrand.html (#64-bit Multiplier)

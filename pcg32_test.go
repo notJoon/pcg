@@ -6,7 +6,7 @@ import (
 )
 
 func TestPCG32_Bounded(t *testing.T) {
-	pcg := NewPCG32().Seed(12345, 67890)
+	pcg := NewPCG32().SeedPCG32(12345, 67890)
 
 	testCases := []struct {
 		bound uint32
@@ -20,7 +20,7 @@ func TestPCG32_Bounded(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := pcg.Bounded(tc.bound)
+		result := pcg.NextUint32InRange(tc.bound)
 		if tc.bound != 0 && result >= tc.bound {
 			t.Errorf("Bounded(%d) = %d; expected a value between 0 and %d", tc.bound, result, tc.bound)
 		}
@@ -31,14 +31,14 @@ func TestPCG32_Bounded(t *testing.T) {
 }
 
 func TestPCG32_UniformDistribution(t *testing.T) {
-	pcg := NewPCG32().Seed(12345, 67890)
+	pcg := NewPCG32().SeedPCG32(12345, 67890)
 	numBins := 10
 	numSamples := 1000000
 	toleranceRatio := 10 // 10% tolerance
 	bins := make([]int, numBins)
 
 	for i := 0; i < numSamples; i++ {
-		r := pcg.Random()
+		r := pcg.NextUint32()
 		binIndex := int(uint64(r) * uint64(numBins) >> 32)
 		bins[binIndex]++
 	}
@@ -69,7 +69,7 @@ func TestPCG32_lcg64(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := pcg.lcg64(tc.state, tc.delta, multiplier, incrementStep)
+		result := pcg.advancedLCG64(tc.state, tc.delta, multiplier, incrementStep)
 		if result != tc.expected {
 			t.Errorf("lcg64(%d, %d) = %d; expected %d", tc.state, tc.delta, result, tc.expected)
 		}
@@ -93,7 +93,7 @@ func TestPCG32_Advance(t *testing.T) {
 
 	for _, tc := range testCases {
 		pcg.state = tc.initialState
-		pcg.Advance(tc.delta)
+		pcg.AdvancePCG32(tc.delta)
 		if pcg.state != tc.expectedState {
 			t.Errorf("Advance(%d) = %d; expected %d", tc.delta, pcg.state, tc.expectedState)
 		}
@@ -117,7 +117,7 @@ func TestPCG32_Retreat(t *testing.T) {
 
 	for _, tc := range testCases {
 		pcg.state = tc.initialState
-		pcg.Retreat(tc.delta)
+		pcg.RetreatPCG32(tc.delta)
 		if pcg.state != tc.expectedState {
 			t.Errorf("Retreat(%d) = %d; expected %d", tc.delta, pcg.state, tc.expectedState)
 		}
@@ -134,7 +134,7 @@ func abs(x int) int {
 func BenchmarkPCG32(b *testing.B) {
 	rng := NewPCG32()
 	for i := 0; i < b.N; i++ {
-		rng.Random()
+		rng.NextUint32()
 	}
 }
 
@@ -147,7 +147,7 @@ func BenchmarkMathRand(b *testing.B) {
 func BenchmarkPCG32_Bounded(b *testing.B) {
 	rng := NewPCG32()
 	for i := 0; i < b.N; i++ {
-		rng.Bounded(100)
+		rng.NextUint32InRange(100)
 	}
 }
 

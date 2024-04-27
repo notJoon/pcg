@@ -5,7 +5,7 @@ import (
 )
 
 func TestPCG_Advance(t *testing.T) {
-	pcg := NewPCG(12345, 67890)
+	pcg := NewPCG64(12345, 67890)
 
 	testCases := []struct {
 		delta           uint64
@@ -20,7 +20,7 @@ func TestPCG_Advance(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		pcg.Advance(tc.delta)
+		pcg.AdvancePCG64(tc.delta)
 		if pcg.hi.state != tc.expectedStateHi {
 			t.Errorf("Advance(%d) hi state = %d; expected %d", tc.delta, pcg.hi.state, tc.expectedStateHi)
 		}
@@ -31,7 +31,7 @@ func TestPCG_Advance(t *testing.T) {
 }
 
 func TestPCG(t *testing.T) {
-	p := NewPCG(1, 2)
+	p := NewPCG64(1, 2)
 	want := []uint64{
 		0x52addb9b0d4aa107,
 		0xc5d5c81b8c97ff8f,
@@ -56,7 +56,7 @@ func TestPCG(t *testing.T) {
 	}
 
 	for i, x := range want {
-		u := p.Uint64()
+		u := p.NextUint64WithMCG()
 		if u != x {
 			t.Errorf("PCG #%d = %#x, want %#x", i, u, x)
 		}
@@ -64,7 +64,7 @@ func TestPCG(t *testing.T) {
 }
 
 func TestPCG_Retreat(t *testing.T) {
-	pcg := NewPCG(12345, 67890)
+	pcg := NewPCG64(12345, 67890)
 
 	testCases := []struct {
 		delta           uint64
@@ -79,7 +79,7 @@ func TestPCG_Retreat(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		pcg.Retreat(tc.delta)
+		pcg.RetreatPCG64(tc.delta)
 		if pcg.hi.state != tc.expectedStateHi {
 			t.Errorf("Retreat(%d) hi state = %d; expected %d", tc.delta, pcg.hi.state, tc.expectedStateHi)
 		}
@@ -90,7 +90,7 @@ func TestPCG_Retreat(t *testing.T) {
 }
 
 func TestPCG_MarshalBinaryUnsafe(t *testing.T) {
-	pcg := NewPCG(12345, 67890)
+	pcg := NewPCG64(12345, 67890)
 	b, err := pcg.MarshalBinaryUnsafe()
 	if err != nil {
 		t.Fatalf("MarshalBinaryUnsafe() error = %v; want nil", err)
@@ -104,21 +104,21 @@ func TestPCG_MarshalBinaryUnsafe(t *testing.T) {
 }
 
 func BenchmarkPCG_Seed(b *testing.B) {
-	pcg := NewPCG(0, 0)
+	pcg := NewPCG64(0, 0)
 	for i := 0; i < b.N; i++ {
-		pcg.Seed(12345, 67890, 12345, 67890)
+		pcg.SeedPCG64(12345, 67890, 12345, 67890)
 	}
 }
 
 func BenchmarkPCG_MarshalBinary(b *testing.B) {
-	pcg := NewPCG(12345, 67890)
+	pcg := NewPCG64(12345, 67890)
 	for i := 0; i < b.N; i++ {
-		_, _ = pcg.MarshalBinary()
+		_, _ = pcg.MarshalBinaryPCG64()
 	}
 }
 
 func BenchmarkPCG_MarshalBinary_Unsafe(b *testing.B) {
-	pcg := NewPCG(12345, 67890)
+	pcg := NewPCG64(12345, 67890)
 	for i := 0; i < b.N; i++ {
 		_, _ = pcg.MarshalBinaryUnsafe()
 	}

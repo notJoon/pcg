@@ -20,8 +20,8 @@ func NewPCG32() *PCG32 {
 	}
 }
 
-// Seed initializes the PCG32 generator with the given state and sequence values.
-func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
+// SeedPCG32 initializes the PCG32 generator with the given state and sequence values.
+func (p *PCG32) SeedPCG32(state, sequence uint64) *PCG32 {
 	p.increment = (sequence << 1) | 1
 	p.state = (state+p.increment)*multiplier + incrementStep
 	return p
@@ -30,7 +30,7 @@ func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
 // neg_mask is a mask to extract the lower 5 bits of a number.
 const neg_mask = 31
 
-// Random generates a pseudorandom 32-bit unsigned integer using the PCG32 algorithm.
+// NextUint32 generates a pseudorandom 32-bit unsigned integer using the PCG32 algorithm.
 // It updates the internal state of the generator using the PCG32 formula:
 //
 //	state = state * multiplier + increment
@@ -42,7 +42,7 @@ const neg_mask = 31
 //  4. Rotate `xorshifted` right by `rot` bits and OR it with `xorshifted` rotated left by `((-rot) & 31)` bits.
 //
 // The resulting value is returned as the random number.
-func (p *PCG32) Random() uint32 {
+func (p *PCG32) NextUint32() uint32 {
 	old := p.state
 	p.state = old*multiplier + p.increment
 
@@ -52,22 +52,22 @@ func (p *PCG32) Random() uint32 {
 	return (xorshifted >> rot) | (xorshifted << (neg_mask - rot))
 }
 
-// Bounded generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
-func (p *PCG32) Bounded(bound uint32) uint32 {
+// NextUint32InRange generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
+func (p *PCG32) NextUint32InRange(bound uint32) uint32 {
 	if bound == 0 {
 		return 0
 	}
 
 	threshold := -bound % bound
 	for {
-		r := p.Random()
+		r := p.NextUint32()
 		if r >= threshold {
 			return r % bound
 		}
 	}
 }
 
-// lcg64 is an implementation of a 64-bit linear congruential generator (LCG).
+// advancedLCG64 is an implementation of a 64-bit linear congruential generator (LCG).
 // It takes the following parameters:
 //   - state: The current state of the LCG.
 //   - delta: The number of steps to advance the LCG.
@@ -98,7 +98,7 @@ func (p *PCG32) Bounded(bound uint32) uint32 {
 // The time complexity of this function is O(log(delta)), as it iterates logarithmically
 // with respect to `delta`. The space complexity is O(1), as it uses only a constant
 // amount of additional memory.
-func (p *PCG32) lcg64(state, delta, mul, add uint64) uint64 {
+func (p *PCG32) advancedLCG64(state, delta, mul, add uint64) uint64 {
 	accMul := uint64(1)
 	accAdd := uint64(0)
 
@@ -114,19 +114,19 @@ func (p *PCG32) lcg64(state, delta, mul, add uint64) uint64 {
 	return accMul*state + accAdd
 }
 
-// Advance moves the PCG32 generator forward by `delta` steps.
+// AdvancePCG32 moves the PCG32 generator forward by `delta` steps.
 // It updates the internal state of the generator using the `lcg64` function
 // and returns the updated PCG32 instance.
-func (p *PCG32) Advance(delta uint64) *PCG32 {
-	p.state = p.lcg64(p.state, delta, multiplier, incrementStep)
+func (p *PCG32) AdvancePCG32(delta uint64) *PCG32 {
+	p.state = p.advancedLCG64(p.state, delta, multiplier, incrementStep)
 	return p
 }
 
-// Retreat moves the PCG32 generator backward by `delta` steps.
+// RetreatPCG32 moves the PCG32 generator backward by `delta` steps.
 // It calculates the equivalent forward delta using the two's complement of `delta`
 // and calls the `Advance` function with the calculated delta.
 // It returns the updated PCG32 instance.
-func (p *PCG32) Retreat(delta uint64) *PCG32 {
+func (p *PCG32) RetreatPCG32(delta uint64) *PCG32 {
 	safeDelta := ^delta + 1
-	return p.Advance(safeDelta)
+	return p.AdvancePCG32(safeDelta)
 }

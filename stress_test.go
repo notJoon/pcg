@@ -6,7 +6,7 @@ import (
 )
 
 func TestPCG_MarshalBinary_Stress(t *testing.T) {
-	p := NewPCG(12345, 67890)
+	p := NewPCG64(12345, 67890)
 
 	const iters = 100000000
 	var memStats runtime.MemStats
@@ -15,7 +15,7 @@ func TestPCG_MarshalBinary_Stress(t *testing.T) {
 	initialTotalAlloc := memStats.TotalAlloc
 
 	for i := 0; i < iters; i++ {
-		b, err := p.MarshalBinary()
+		b, err := p.MarshalBinaryPCG64()
 		if err != nil {
 			t.Fatalf("MarshalBinary failed: %v", err)
 		}
