@@ -106,5 +106,5 @@ BenchmarkPCG_MarshalBinary_Unsafe-8   1000000000      0.5331 ns/op      0 B/op  
 
 ## References
 
-[1] <https://www.pcg-random.org/>
-[2] <https://www.pcg-random.org/posts/128-bit-mcg-passes-practrand.html>
+- <https://www.pcg-random.org/>
+- <https://www.pcg-random.org/posts/128-bit-mcg-passes-practrand.html>
