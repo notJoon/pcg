@@ -16,8 +16,8 @@ type PCG64 struct {
 // seed1 and seed2 are the initial state values for the generator.
 func NewPCG64(seed1, seed2 uint64) *PCG64 {
 	return &PCG64{
-		hi: NewPCG32().SeedPCG32(seed1, 0),
-		lo: NewPCG32().SeedPCG32(seed2, 0),
+		hi: NewPCG32().Seed(seed1, 0),
+		lo: NewPCG32().Seed(seed2, 0),
 	}
 }
 
@@ -28,8 +28,8 @@ func (p *PCG64) SeedPCG64(seed1, seed2, seq1, seq2 uint64) *PCG64 {
 	if seq1&mask == seq2&mask {
 		seq2 = ^seq2
 	}
-	p.lo.SeedPCG32(seed1, seq1)
-	p.hi.SeedPCG32(seed2, seq2)
+	p.lo.Seed(seed1, seq1)
+	p.hi.Seed(seed2, seq2)
 
 	return p
 }

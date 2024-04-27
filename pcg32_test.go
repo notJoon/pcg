@@ -6,7 +6,7 @@ import (
 )
 
 func TestPCG32_Bounded(t *testing.T) {
-	pcg := NewPCG32().SeedPCG32(12345, 67890)
+	pcg := NewPCG32().Seed(12345, 67890)
 
 	testCases := []struct {
 		bound uint32
@@ -20,7 +20,7 @@ func TestPCG32_Bounded(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := pcg.NextUint32InRange(tc.bound)
+		result := pcg.Uint32Range(tc.bound)
 		if tc.bound != 0 && result >= tc.bound {
 			t.Errorf("Bounded(%d) = %d; expected a value between 0 and %d", tc.bound, result, tc.bound)
 		}
@@ -31,7 +31,7 @@ func TestPCG32_Bounded(t *testing.T) {
 }
 
 func TestPCG32_UniformDistribution(t *testing.T) {
-	pcg := NewPCG32().SeedPCG32(12345, 67890)
+	pcg := NewPCG32().Seed(12345, 67890)
 	numBins := 10
 	numSamples := 1000000
 	toleranceRatio := 10 // 10% tolerance
@@ -144,10 +144,10 @@ func BenchmarkMathRand(b *testing.B) {
 	}
 }
 
-func BenchmarkPCG32_Bounded(b *testing.B) {
+func BenchmarkPCG32_InRange(b *testing.B) {
 	rng := NewPCG32()
 	for i := 0; i < b.N; i++ {
-		rng.NextUint32InRange(100)
+		rng.Uint32Range(100)
 	}
 }
 

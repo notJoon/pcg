@@ -20,8 +20,8 @@ func NewPCG32() *PCG32 {
 	}
 }
 
-// SeedPCG32 initializes the PCG32 generator with the given state and sequence values.
-func (p *PCG32) SeedPCG32(state, sequence uint64) *PCG32 {
+// Seed initializes the PCG32 generator with the given state and sequence values.
+func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
 	p.increment = (sequence << 1) | 1
 	p.state = (state+p.increment)*multiplier + incrementStep
 	return p
@@ -52,8 +52,8 @@ func (p *PCG32) NextUint32() uint32 {
 	return (xorshifted >> rot) | (xorshifted << (neg_mask - rot))
 }
 
-// NextUint32InRange generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
-func (p *PCG32) NextUint32InRange(bound uint32) uint32 {
+// Uint32Range generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
+func (p *PCG32) Uint32Range(bound uint32) uint32 {
 	if bound == 0 {
 		return 0
 	}
