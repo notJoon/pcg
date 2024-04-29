@@ -2,6 +2,7 @@ package pcg
 
 import (
 	"errors"
+	"math"
 	"math/bits"
 	"unsafe"
 )
@@ -21,9 +22,9 @@ func NewPCG64(seed1, seed2 uint64) *PCG64 {
 	}
 }
 
-// SeedPCG64 initializes the PCG64 generator with the given state and sequence values.
+// Seed initializes the PCG64 generator with the given state and sequence values.
 // seed1 and seed2 are the initial state values, and seq1 and seq2 are the sequence values.
-func (p *PCG64) SeedPCG64(seed1, seed2, seq1, seq2 uint64) *PCG64 {
+func (p *PCG64) Seed(seed1, seed2, seq1, seq2 uint64) *PCG64 {
 	mask := ^uint64(0) >> 1
 	if seq1&mask == seq2&mask {
 		seq2 = ^seq2
@@ -34,36 +35,72 @@ func (p *PCG64) SeedPCG64(seed1, seed2, seq1, seq2 uint64) *PCG64 {
 	return p
 }
 
-// NextUint64 generates a pseudorandom 64-bit unsigned integer using the PCG64 algorithm.
-func (p *PCG64) NextUint64() uint64 {
-	return uint64(p.hi.NextUint32())<<32 | uint64(p.lo.NextUint32())
+// Uint64 generates a pseudorandom 64-bit unsigned integer using the PCG64 algorithm.
+func (p *PCG64) Uint64() uint64 {
+	return uint64(p.hi.Uint32())<<32 | uint64(p.lo.Uint32())
 }
 
-// NextUint64InRange generates a pseudorandom number in the range [0, bound) using the PCG64 algorithm.
-func (p *PCG64) NextUint64InRange(bound uint64) uint64 {
+// Uint63 generates a pseudorandom 63-bit integer using the PCG64 algorithm.
+// It masks the highest bit to ensure the value is within the 63-bit integer range.
+func (p *PCG64) Uint63() int64 {
+	return int64(p.Uint64() & 0x7FFFFFFFFFFFFFFF) // Mask the highest bit to stay within the 63-bit range
+}
+
+// Uint64n generates a pseudorandom number in the range [0, bound) using the PCG64 algorithm.
+func (p *PCG64) Uint64n(bound uint64) uint64 {
 	threshold := -bound % bound
 	for {
-		r := p.NextUint64()
+		r := p.Uint64()
 		if r >= threshold {
 			return r % bound
 		}
 	}
 }
 
-// AdvancePCG64 moves the PCG64 generator forward by `delta` steps.
+// Float64 returns a random float64 in the range [0.0, 1.0).
+func (p *PCG64) Float64() float64 {
+	return float64(p.Uint63() >> 11) * (1.0 / (1 << 52))
+}
+
+// Float64Full uses the full 64 bits of the generated number to produce a random float64.
+// slightly more precise than Float64() but slower.
+func (p *PCG64) Float64Full() float64 {
+	return float64(p.Uint64() & 0xFFFFFFFFFFFFFF) / math.MaxUint64
+}
+
+// Advance moves the PCG64 generator forward by `delta` steps.
 // It updates the initial state of the generator.
-func (p *PCG64) AdvancePCG64(delta uint64) *PCG64 {
-	p.hi.AdvancePCG32(delta)
-	p.lo.AdvancePCG32(delta)
+func (p *PCG64) Advance(delta uint64) *PCG64 {
+	p.hi.Advance(delta)
+	p.lo.Advance(delta)
 	return p
 }
 
-// RetreatPCG64 moves the PCG64 generator backward by `delta` steps.
+// Retreat moves the PCG64 generator backward by `delta` steps.
 // it updates the initial state of the generator.
-func (p *PCG64) RetreatPCG64(delta uint64) *PCG64 {
+func (p *PCG64) Retreat(delta uint64) *PCG64 {
 	safeDelta := ^uint64(0) - 1
-	p.AdvancePCG64(safeDelta)
+	p.Advance(safeDelta)
 	return p
+}
+
+func (p *PCG64) Shuffle(n int, swap func(i, j int)) {
+	// Fisher-Yates shuffle: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+	for i := n - 1; i > 0; i-- {
+		j := int(p.Uint64n(uint64(i + 1)))
+		swap(i, j)
+	}
+}
+
+func (p *PCG64) Perm(n int) []int {
+	res := make([]int, n)
+	for i := range res {
+		res[i] = i
+	}
+	p.Shuffle(n, func(i, j int) {
+		res[i], res[j] = res[j], res[i]
+	})
+	return res
 }
 
 func beUint64(b []byte) uint64 {
@@ -146,7 +183,7 @@ func (p *PCG64) next() (uint64, uint64) {
 
 // NextUInt64WithMCG generates a pseudorandom 64-bit unsigned integer using the PCG64 algorithm with Multiplier Congruential Generator (MCG).
 // It updates the internal state of the generator and returns the generated value.
-func (p *PCG64) NextUint64WithMCG() uint64 {
+func (p *PCG64) Uint64nWithMCG() uint64 {
 	hi, lo := p.next()
 
 	// ref: https://www.pcg-random.org/posts/128-bit-mcg-passes-practrand.html (#64-bit Multiplier)

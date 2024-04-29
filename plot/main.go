@@ -14,7 +14,7 @@ func main() {
 	bins := make([]int, numBins)
 
 	for i := 0; i < numSamples; i++ {
-		r := pcg.NextUint32()
+		r := pcg.Uint32()
 		binIndex := int(uint64(r) * uint64(numBins) >> 32)
 		bins[binIndex]++
 	}

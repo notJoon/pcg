@@ -1,8 +1,63 @@
 package pcg
 
 import (
+	"fmt"
+	"math"
+	"math/rand"
 	"testing"
+	"time"
+
+	"gonum.org/v1/gonum/stat"
 )
+
+func TestUniformityOfUint63(t *testing.T) {
+	pcg := NewPCG64(42, 54)
+	n := 100000
+	k := 25
+	expected := float64(n) / float64(k)
+	observed := make([]float64, k)
+	expectedFreq := make([]float64, k)
+
+	for i := range expectedFreq {
+		expectedFreq[i] = expected
+	}
+
+	for i := 0; i < n; i++ {
+		val := pcg.Uint63()
+		index := int(float64(val) / float64(math.MaxInt64) * float64(k))
+		if index == k {
+			index = k - 1
+		}
+		observed[index]++
+	}
+
+	p := stat.ChiSquare(observed, expectedFreq)
+	fmt.Printf("p-value: %f\n", p)
+
+	for i, freq := range observed {
+		fmt.Printf("Bin %d: observed frequency = %f\n", i, freq)
+	}
+
+	if p < 0.05 {
+		t.Errorf("Reject null hypothesis: p-value = %f; numbers are not uniformly distributed", p)
+	} else {
+		fmt.Println("Uniformity test passed, p-value:", p)
+	}
+}
+
+func TestPCG_Uint63(t *testing.T) {
+	pcg := NewPCG64(12345, 67890)
+
+	for i := 0; i < 100000; i++ {
+		val := pcg.Uint63()
+		if val < 0 {
+			t.Errorf("Uint63() = %d; want a non-negative number", val)
+		}
+		if val > 0x7FFFFFFFFFFFFFFF {
+			t.Errorf("Uint63() = %d; want a 63-bit integer", val)
+		}
+	}
+}
 
 func TestPCG_Advance(t *testing.T) {
 	pcg := NewPCG64(12345, 67890)
@@ -20,7 +75,7 @@ func TestPCG_Advance(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		pcg.AdvancePCG64(tc.delta)
+		pcg.Advance(tc.delta)
 		if pcg.hi.state != tc.expectedStateHi {
 			t.Errorf("Advance(%d) hi state = %d; expected %d", tc.delta, pcg.hi.state, tc.expectedStateHi)
 		}
@@ -56,7 +111,7 @@ func TestPCG(t *testing.T) {
 	}
 
 	for i, x := range want {
-		u := p.NextUint64WithMCG()
+		u := p.Uint64nWithMCG()
 		if u != x {
 			t.Errorf("PCG #%d = %#x, want %#x", i, u, x)
 		}
@@ -79,7 +134,7 @@ func TestPCG_Retreat(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		pcg.RetreatPCG64(tc.delta)
+		pcg.Retreat(tc.delta)
 		if pcg.hi.state != tc.expectedStateHi {
 			t.Errorf("Retreat(%d) hi state = %d; expected %d", tc.delta, pcg.hi.state, tc.expectedStateHi)
 		}
@@ -87,6 +142,46 @@ func TestPCG_Retreat(t *testing.T) {
 			t.Errorf("Retreat(%d) lo state = %d; expected %d", tc.delta, pcg.lo.state, tc.expectedStateLo)
 		}
 	}
+}
+
+func Test_ExamplePCG64_Shuffle(t *testing.T) {
+	pcg := NewPCG64(42, 54)
+	pcg.Seed(42, 54, 18, 27)
+
+	array := []int{1, 2, 3, 4, 5}
+	pcg.Shuffle(len(array), func(i, j int) {
+		array[i], array[j] = array[j], array[i]
+	})
+
+	if len(array) != 5 {
+		t.Errorf("Shuffle() len(array) = %d; want 5", len(array))
+	}
+
+	if isArrayEqual(array, []int{1, 2, 3, 4, 5}) {
+		t.Errorf("Shuffle() array = %v; want shuffled", array)
+	}
+}
+
+func TestFloat64(t *testing.T) {
+    pcg := NewPCG64(42, 54)  // Assume NewPCG64 properly initializes the RNG
+    for i := 0; i < 1000; i++ {
+        val := pcg.Float64()
+        if val < 0.0 || val > 1.0 {
+            t.Errorf("Float64() returned a value out of bounds: %f", val)
+        }
+		// t.Logf("Float64() = %f", val)
+    }
+}
+
+func TestFloat64Full(t *testing.T) {
+    pcg := NewPCG64(42, 54)  // Assume NewPCG64 properly initializes the RNG
+    for i := 0; i < 1000; i++ {
+        val := pcg.Float64Full()
+        if val < 0.0 || val >= 1.0 {
+            t.Errorf("Float64Full() returned a value out of bounds: %f", val)
+        }
+		// t.Logf("Float64Full() = %f", val)
+    }
 }
 
 func TestPCG_MarshalBinaryUnsafe(t *testing.T) {
@@ -106,7 +201,7 @@ func TestPCG_MarshalBinaryUnsafe(t *testing.T) {
 func BenchmarkPCG_Seed(b *testing.B) {
 	pcg := NewPCG64(0, 0)
 	for i := 0; i < b.N; i++ {
-		pcg.SeedPCG64(12345, 67890, 12345, 67890)
+		pcg.Seed(12345, 67890, 12345, 67890)
 	}
 }
 
@@ -121,5 +216,73 @@ func BenchmarkPCG_MarshalBinary_Unsafe(b *testing.B) {
 	pcg := NewPCG64(12345, 67890)
 	for i := 0; i < b.N; i++ {
 		_, _ = pcg.MarshalBinaryUnsafe()
+	}
+}
+
+var (
+	size          = 1000
+	slicePCG32    = make([]int, size)
+	slicePCG64    = make([]int, size)
+	sliceMathRand = make([]int, size)
+)
+
+func init() {
+	for i := 0; i < size; i++ {
+		slicePCG32[i] = i
+		slicePCG64[i] = i
+		sliceMathRand[i] = i
+	}
+}
+
+func BenchmarkPCG32Shuffle(b *testing.B) {
+	pcg32 := NewPCG32()
+	pcg32.Seed(42, 54)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pcg32.Shuffle(len(slicePCG32), func(i, j int) {
+			slicePCG32[i], slicePCG32[j] = slicePCG32[j], slicePCG32[i]
+		})
+	}
+}
+
+func BenchmarkPCG64Shuffle(b *testing.B) {
+	pcg64 := NewPCG64(42, 54)
+	pcg64.Seed(42, 54, 18, 27)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pcg64.Shuffle(len(slicePCG64), func(i, j int) {
+			slicePCG64[i], slicePCG64[j] = slicePCG64[j], slicePCG64[i]
+		})
+	}
+}
+
+func BenchmarkMathRandShuffle(b *testing.B) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		r.Shuffle(len(sliceMathRand), func(i, j int) {
+			sliceMathRand[i], sliceMathRand[j] = sliceMathRand[j], sliceMathRand[i]
+		})
+	}
+}
+
+func BenchmarkFloat64(b *testing.B) {
+    pcg := NewPCG64(42, 54)  // Assume NewPCG64 properly initializes the RNG
+    for i := 0; i < b.N; i++ {
+        _ = pcg.Float64()
+    }
+}
+
+func BenchmarkFloat64Full(b *testing.B) {
+    pcg := NewPCG64(42, 54)  // Assume NewPCG64 properly initializes the RNG
+    for i := 0; i < b.N; i++ {
+        _ = pcg.Float64Full()
+    }
+}
+
+func BenchmarkMathRandFloat64(b *testing.B) {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < b.N; i++ {
+		_ = r.Float64()
 	}
 }

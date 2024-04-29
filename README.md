@@ -95,6 +95,14 @@ BenchmarkPCG32_InRange-8   443862901         2.725 ns/op       0 B/op       0 al
 Benchmark_MathRanIntn-8    152259916         7.863 ns/op       0 B/op       0 allocs/op
 ```
 
+### Shuffle
+
+```bench
+BenchmarkPCG32Shuffle-8                   387098              3076 ns/op
+BenchmarkPCG64Shuffle-8                   290523              4097 ns/op
+BenchmarkMathRandShuffle-8                274897              4362 ns/op
+```
+
 ### Marshaling
 
 ```bench

@@ -30,7 +30,7 @@ func (p *PCG32) Seed(state, sequence uint64) *PCG32 {
 // neg_mask is a mask to extract the lower 5 bits of a number.
 const neg_mask = 31
 
-// NextUint32 generates a pseudorandom 32-bit unsigned integer using the PCG32 algorithm.
+// Uint32 generates a pseudorandom 32-bit unsigned integer using the PCG32 algorithm.
 // It updates the internal state of the generator using the PCG32 formula:
 //
 //	state = state * multiplier + increment
@@ -42,7 +42,7 @@ const neg_mask = 31
 //  4. Rotate `xorshifted` right by `rot` bits and OR it with `xorshifted` rotated left by `((-rot) & 31)` bits.
 //
 // The resulting value is returned as the random number.
-func (p *PCG32) NextUint32() uint32 {
+func (p *PCG32) Uint32() uint32 {
 	old := p.state
 	p.state = old*multiplier + p.increment
 
@@ -52,19 +52,27 @@ func (p *PCG32) NextUint32() uint32 {
 	return (xorshifted >> rot) | (xorshifted << (neg_mask - rot))
 }
 
-// Uint32Range generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
-func (p *PCG32) Uint32Range(bound uint32) uint32 {
+// Uintn32 generates a pseudorandom number in the range [0, bound) using the PCG32 algorithm.
+func (p *PCG32) Uintn32(bound uint32) uint32 {
 	if bound == 0 {
 		return 0
 	}
 
 	threshold := -bound % bound
 	for {
-		r := p.NextUint32()
+		r := p.Uint32()
 		if r >= threshold {
 			return r % bound
 		}
 	}
+}
+
+// Uint63 generates a pseudorandom 63-bit integer using two 32-bit numbers.
+// The function ensures that the returned number is within the range of 0 to 2^63-1.
+func (p *PCG32) Uint63() int64 {
+	upper := int64(p.Uint32()) & 0x7FFFFFFF // Use only the lower 31 bits of the upper half
+	lower := int64(p.Uint32())              // Use all 32 bits of the lower half
+	return (upper << 32) | lower            // Combine the two halves to form a 63-bit integer
 }
 
 // advancedLCG64 is an implementation of a 64-bit linear congruential generator (LCG).
@@ -114,19 +122,46 @@ func (p *PCG32) advancedLCG64(state, delta, mul, add uint64) uint64 {
 	return accMul*state + accAdd
 }
 
-// AdvancePCG32 moves the PCG32 generator forward by `delta` steps.
+// Advance moves the PCG32 generator forward by `delta` steps.
 // It updates the internal state of the generator using the `lcg64` function
 // and returns the updated PCG32 instance.
-func (p *PCG32) AdvancePCG32(delta uint64) *PCG32 {
+func (p *PCG32) Advance(delta uint64) *PCG32 {
 	p.state = p.advancedLCG64(p.state, delta, multiplier, incrementStep)
 	return p
 }
 
-// RetreatPCG32 moves the PCG32 generator backward by `delta` steps.
+// Retreat moves the PCG32 generator backward by `delta` steps.
 // It calculates the equivalent forward delta using the two's complement of `delta`
 // and calls the `Advance` function with the calculated delta.
 // It returns the updated PCG32 instance.
-func (p *PCG32) RetreatPCG32(delta uint64) *PCG32 {
+func (p *PCG32) Retreat(delta uint64) *PCG32 {
 	safeDelta := ^delta + 1
-	return p.AdvancePCG32(safeDelta)
+	return p.Advance(safeDelta)
+}
+
+func (p *PCG32) Shuffle(n int, swap func(i, j int)) {
+	if n < 0 {
+		panic("invalid argument to shuffle")
+	}
+	if n < 2 {
+		return
+	}
+	// Fisher-Yates shuffle: https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+	for i := n - 1; i > 0; i-- {
+		j := int(p.Uintn32(uint32(i + 1)))
+		swap(i, j)
+	}
+}
+
+// Perm returns a slice of n integers. The slice is a random permutation of the integers [0, n).
+func (p *PCG32) Perm(n int) []int {
+	res := make([]int, n)
+	for i := 0; i < n; i++ {
+		res[i] = i
+	}
+	for i := 1; i < n; i++ {
+		j := int(p.Uintn32(uint32(i + 1)))
+		res[i], res[j] = res[j], res[i]
+	}
+	return res
 }
