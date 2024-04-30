@@ -9,7 +9,7 @@ import (
 
 func main() {
 	pcg := pcg.NewPCG32().Seed(12345, 67890)
-	numBins := 10
+	numBins := 25
 	numSamples := 1000000
 	bins := make([]int, numBins)
 
@@ -38,7 +38,7 @@ func main() {
 
 	pl.Add(bar)
 
-	if err := pl.Save(4*vg.Inch, 4*vg.Inch, "uniform_distribution.png"); err != nil {
+	if err := pl.Save(4*vg.Inch, 4*vg.Inch, "uniform_distribution_bin25.png"); err != nil {
 		panic(err)
 	}
 }

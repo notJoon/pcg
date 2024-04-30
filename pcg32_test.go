@@ -233,9 +233,22 @@ func BenchmarkPCG32Rand(b *testing.B) {
 	}
 }
 
-func BenchmarkMathRand(b *testing.B) {
+func BenchmarkPCG64Rand(b *testing.B) {
+	rng := NewPCG64(42, 54)
+	for i := 0; i < b.N; i++ {
+		rng.Uint64()
+	}
+}
+
+func BenchmarkMathRand32(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		rand.Uint32()
+	}
+}
+
+func BenchmarkMathRand64(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		rand.Uint64()
 	}
 }
 
@@ -243,6 +256,13 @@ func BenchmarkPCG32_InRange_Uintn32(b *testing.B) {
 	rng := NewPCG32()
 	for i := 0; i < b.N; i++ {
 		rng.Uintn32(100)
+	}
+}
+
+func BenchmarkPCG64_InRange_Uintn64(b *testing.B) {
+	rng := NewPCG64(42, 54)
+	for i := 0; i < b.N; i++ {
+		rng.Uint64n(100)
 	}
 }
 

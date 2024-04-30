@@ -12,7 +12,7 @@ import (
 
 func TestUniformityOfUint63(t *testing.T) {
 	pcg := NewPCG64(42, 54)
-	n := 100000
+	n := 10000000
 	k := 25
 	expected := float64(n) / float64(k)
 	observed := make([]float64, k)
