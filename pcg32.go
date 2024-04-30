@@ -1,10 +1,12 @@
 package pcg
 
+import "encoding/binary"
+
 // ref: https://gist.github.com/ivan-pi/060e38d5f9a86c57923a61fbf18d095c
 const (
 	defaultState  = 0x853c49e6748fea9b //  9600629759793949339
 	multiplier    = 0x5851f42d4c957f2d //  6364136223846793005
-	incrementStep = 0xda3e39cb94b95bdb // 15726070495360670683
+	incrementStep = 0x9e3779b97f4a7c15 //  https://www.pcg-random.org/posts/bugs-in-splitmix.html
 )
 
 // PCG32 is a 32-bit pseudorandom number generator based on the PCG family of algorithms.
@@ -164,4 +166,45 @@ func (p *PCG32) Perm(n int) []int {
 		res[i], res[j] = res[j], res[i]
 	}
 	return res
+}
+
+// Read generates and fills the given byte slice with random bytes using the PCG32 random number generator.
+//
+// This function repeatedly generates 32-bit unsigned integers using the Uint32 function,
+// and uses binary.LittleEndian.PutUint32 to split these integers into bytes and store them in the slice.
+// This approach efficiently copies memory in accordance with the CPU's endian configuration, thereby enhancing performance.
+//
+// Parameters:
+//   - buf: The byte slice to be filled with random bytes.
+//
+// Return values:
+//   - n: The number of bytes generated and stored in the byte slice. It is always equal to len(buf).
+//   - err: Always returns nil, indicating no error occurred.
+func (p *PCG32) Read(buf []byte) (int, error) {
+	n := len(buf)
+	i := 0
+
+	// loop unrolling: process 8 bytes in each iteration
+	for ; i <= n-8; i += 8 {
+		val1 := p.Uint32()
+		val2 := p.Uint32()
+		binary.LittleEndian.PutUint32(buf[i:], val1)
+		binary.LittleEndian.PutUint32(buf[i+4:], val2)
+	}
+
+	// handle remaining bytes (less than 8 bytes)
+	if i < n {
+		remaining := buf[i:]
+		for j := 0; j < len(remaining); j += 4 {
+			if i+j < n {
+				val := p.Uint32()
+				// handle remaining bytes (less than real buffer size)
+				for k := 0; k < 4 && (j+k) < len(remaining); k++ {
+					remaining[j+k] = byte(val >> (8 * k))
+				}
+			}
+		}
+	}
+
+	return n, nil
 }

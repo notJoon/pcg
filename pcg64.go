@@ -1,10 +1,16 @@
 package pcg
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"math/bits"
 	"unsafe"
+)
+
+const (
+	inv52 = 1.0 / (1 << 52)
+	inv64 = 1.0 / float64(math.MaxUint64)
 )
 
 // A PCG64 is a PCG64 generator with 128 bits of internal state.
@@ -59,13 +65,13 @@ func (p *PCG64) Uint64n(bound uint64) uint64 {
 
 // Float64 returns a random float64 in the range [0.0, 1.0).
 func (p *PCG64) Float64() float64 {
-	return float64(p.Uint63() >> 11) * (1.0 / (1 << 52))
+	return float64(p.Uint63()>>11) * inv52
 }
 
 // Float64Full uses the full 64 bits of the generated number to produce a random float64.
 // slightly more precise than Float64() but slower.
 func (p *PCG64) Float64Full() float64 {
-	return float64(p.Uint64() & 0xFFFFFFFFFFFFFF) / math.MaxUint64
+	return float64(p.Uint64()&0xFFFFFFFFFFFFFF) * inv64
 }
 
 // Advance moves the PCG64 generator forward by `delta` steps.
@@ -101,6 +107,37 @@ func (p *PCG64) Perm(n int) []int {
 		res[i], res[j] = res[j], res[i]
 	})
 	return res
+}
+
+// Read generates random bytes in the provided byte slice using the PCG64 random number generator.
+// It employs loop unrolling to process 16 bytes at a time for performance enhancement.
+func (p *PCG64) Read(buf []byte) (int, error) {
+	n := len(buf)
+	i := 0
+
+	// Loop unrolling: processing 16 bytes per iteration
+	for ; i <= n-16; i += 16 {
+		val1 := p.Uint64()
+		val2 := p.Uint64()
+		binary.LittleEndian.PutUint64(buf[i:], val1)
+		binary.LittleEndian.PutUint64(buf[i+8:], val2)
+	}
+
+	// Handle any remaining bytes that were not processed in the main loop
+	if i < n {
+		remaining := buf[i:]
+		for j := 0; j < len(remaining); j += 8 {
+			if i+j < n {
+				val := p.Uint64()
+				// Only write the necessary bytes
+				for k := 0; k < 8 && (j+k) < len(remaining); k++ {
+					remaining[j+k] = byte(val >> (8 * k))
+				}
+			}
+		}
+	}
+
+	return n, nil
 }
 
 func beUint64(b []byte) uint64 {
